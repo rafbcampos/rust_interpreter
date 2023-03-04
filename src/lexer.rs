@@ -8,11 +8,41 @@ pub enum Token {
     Function,
     #[token("let")]
     Let,
+    #[token("true")]
+    True,
+    #[token("false")]
+    False,
+    #[token("if")]
+    If,
+    #[token("else")]
+    Else,
+    #[token("return")]
+    Return,
     // operators
+    #[token("==")]
+    Equal,
+    #[token("!=")]
+    NotEqual,
+    #[token("<")]
+    LessThan,
+    #[token(">")]
+    GreaterThan,
+    #[token("<=")]
+    LessThanEqual,
+    #[token(">=")]
+    GreaterThanEqual,
     #[token("=")]
     Assign,
     #[token("+")]
     Plus,
+    #[token("-")]
+    Minus,
+    #[token("!")]
+    Bang,
+    #[token("*")]
+    Asterisk,
+    #[token("/")]
+    Slash,
     // delimiters
     #[token(",")]
     Comma,
@@ -51,14 +81,31 @@ pub fn lexer(input: &str) -> Vec<Token> {
 }    
 
     #[test]
-    fn handles_case1() {
+    fn tokenize() {
         let input = r#"
         let five = 5;
         let ten = 10;
+
         let add = fn(x, y) {
             x + y;
         };
+
         let result = add(five, ten);
+
+        let is_greater = fn(x, y) {
+            if (x > y) {
+                return true;
+            } else {
+                return false;
+            }
+        };
+
+        10 == 10;
+        10 != 9;
+        10 >= 10;
+        9 <= 9;
+        2 * 2;
+        2 / 2;
         "#;
 
         let expected = vec![
@@ -97,6 +144,59 @@ pub fn lexer(input: &str) -> Vec<Token> {
             Token::Comma,
             Token::Ident("ten".to_string()),
             Token::RParen,
+            Token::Semicolon,
+            Token::Let, 
+            Token::Ident("is_greater".to_string()), 
+            Token::Assign,
+            Token::Function, 
+            Token::LParen,
+            Token::Ident("x".to_string()),
+            Token::Comma,
+            Token::Ident("y".to_string()),
+            Token::RParen,
+            Token::LBrace,
+            Token::If,
+            Token::LParen,
+            Token::Ident("x".to_string()),
+            Token::GreaterThan,
+            Token::Ident("y".to_string()),
+            Token::RParen,
+            Token::LBrace,
+            Token::Return,
+            Token::True,
+            Token::Semicolon,
+            Token::RBrace,
+            Token::Else,
+            Token::LBrace,
+            Token::Return,
+            Token::False,
+            Token::Semicolon,
+            Token::RBrace,
+            Token::RBrace,
+            Token::Semicolon,
+            Token::Number(10),
+            Token::Equal,
+            Token::Number(10),
+            Token::Semicolon,
+            Token::Number(10),
+            Token::NotEqual,
+            Token::Number(9),
+            Token::Semicolon,
+            Token::Number(10),
+            Token::GreaterThanEqual,
+            Token::Number(10),
+            Token::Semicolon,
+            Token::Number(9),
+            Token::LessThanEqual,
+            Token::Number(9),
+            Token::Semicolon,
+            Token::Number(2),
+            Token::Asterisk,
+            Token::Number(2),
+            Token::Semicolon,
+            Token::Number(2),
+            Token::Slash,
+            Token::Number(2),
             Token::Semicolon,
             Token::Eof,
         ];
