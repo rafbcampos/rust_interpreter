@@ -1,10 +1,11 @@
-pub mod lexer;
+mod lexer;
+mod parser;
 
+use parser::parser;
+use lexer::Token;
+use logos::Logos;
 use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result};
-use logos::Logos;
-use lexer::Token;
-
 
 fn repl() -> Result<()> {
     let mut rl = DefaultEditor::new()?; 
@@ -13,10 +14,14 @@ fn repl() -> Result<()> {
         let readline = rl.readline(">> ");
         match readline {
             Ok(line) => {
+                let ast = parser(&line);
                 let tokens = Token::lexer(&line);
+                println!("Tokens:");
                 for token in tokens {
                     println!("{:?}", token);
                 }
+                println!("----------------");
+                println!("AST: {:?}", ast);
             },
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");

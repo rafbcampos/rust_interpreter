@@ -70,6 +70,8 @@ pub enum Token {
     #[regex(r"[ \n\t\f]+", logos::skip)]
     #[error]
     Ilega,
+    // end of file
+    Eof,
 }
 
     #[test]
@@ -190,6 +192,7 @@ pub enum Token {
             Token::Slash,
             Token::Number(2),
             Token::Semicolon,
+            Token::Eof,
         ];
 
         let tokens = {
@@ -198,6 +201,7 @@ pub enum Token {
             for token in lex {
                 tokens.push(token);
             }
+            tokens.push(Token::Eof);
             tokens
         };
         assert_eq!(tokens, expected);
