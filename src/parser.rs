@@ -68,7 +68,7 @@ type Parser = fn(&Token, &mut Lexer<Token>, &mut Vec<Expression>) -> Option<Expr
 
 // Helpers =========================================================================================
 
-const PARSERS: [Parser; 6] = [parse_array, parse_number, parse_string, parse_boolean, parse_binary_operator, parse_parens];
+const PARSERS: [Parser; 7] = [parse_array, parse_number, parse_string, parse_boolean, parse_binary_operator, parse_parens, parse_let];
 
 fn chain_pasers(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>) -> Option<Expression> {
    let mut expression: Option<Expression> = None;
@@ -168,6 +168,7 @@ fn parse_array(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Ex
 }
 
 fn parse_binary_operator(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>)  -> Option<Expression> {
+    // TODO: rething this logic, it doesn't work for expressions like let a = 1 + 2
     match token {
         Token::Plus => Some(Expression::BinaryOperator(BinaryOperator {
             left: Box::new(expressions.pop().unwrap()),
@@ -244,10 +245,40 @@ fn parse_parens(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<E
             }
         }
         
+        // TODO: This is a hack to get the last expression in the parens
+        // Need to rething this logic to reduce the expression to a single one.
         if expressions.is_empty() {
             Some(Expression::Call)
         } else {
             Some(expressions.last().unwrap().clone())
+        }
+    } else {
+        None
+    }
+}
+
+fn parse_let(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>)  -> Option<Expression> {
+    if let Token::Let = token {
+        let ident = lexer.next();
+        let assingment = lexer.next();
+        let value = lexer.next();
+        if let Some(Token::Ident(ident)) = ident {
+            if let Some(Token::Assign) = assingment {
+                if let Some(value) = value {
+                    let expression = chain_pasers(&value, lexer, expressions);
+                    if let Some(expression) = expression {
+                        Some(Expression::Let(Let {name: ident, value: Box::new(expression)}))
+                    } else {
+                        panic!("Unexpected end of file");
+                    }
+                } else {
+                    panic!("Unexpected end of file");
+                }
+            } else {
+                panic!("Unexpected end of file");
+            }
+        } else {
+            panic!("Unexpected end of file");
         }
     } else {
         None
