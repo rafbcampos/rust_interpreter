@@ -57,6 +57,7 @@ enum Expression {
     Let(Let),
     Block(Block),
     Return(Return),
+    Unit,
 }
 
 #[derive(Debug)]
@@ -68,7 +69,7 @@ type Parser = fn(&Token, &mut Lexer<Token>, &mut Vec<Expression>) -> Option<Expr
 
 // Helpers =========================================================================================
 
-const PARSERS: [Parser; 7] = [parse_array, parse_number, parse_string, parse_boolean, parse_binary_operator, parse_parens, parse_let];
+const PARSERS: [Parser; 9] = [parse_array, parse_number, parse_string, parse_boolean, parse_binary_operator, parse_parens, parse_let, parse_block, parse_return];
 
 fn chain_pasers(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>) -> Option<Expression> {
    let mut expression: Option<Expression> = None;
@@ -150,7 +151,6 @@ fn parse_boolean(token: &Token, _lexer: &mut Lexer<Token>, _expressions: &mut Ve
     }
 }
 
-
 fn parse_array(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>)  -> Option<Expression> {
     if let Token::LBracket = token {
         let tokens = get_tokens_until_end_of_array( lexer);
@@ -167,61 +167,86 @@ fn parse_array(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Ex
     }
 }
 
-fn parse_binary_operator(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>)  -> Option<Expression> {
-    // TODO: rething this logic, it doesn't work for expressions like let a = 1 + 2
+fn parse_block(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>)  -> Option<Expression> {
+    if let Token::LBrace = token {
+        let tokens = get_tokens_until_end_of_block(lexer);
+        let mut expressions = Vec::new();
+        for token in tokens {
+            let expression = chain_pasers(&token, lexer, &mut expressions);
+            if let Some(expression) = expression {
+                expressions.push(expression);
+            }
+        } 
+        Some(Expression::Block(Block { expressions }))
+    } else {
+        None
+    }
+}
+
+fn parse_return(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>)  -> Option<Expression> {
+    if let Token::Return = token {
+        let expression = chain_pasers(&lexer.next().unwrap(), lexer, expressions);
+        if let Some(expression) = expression {
+            Some(Expression::Return(Return { value: Box::new(expression) }))
+        } else {
+            Some(Expression::Return(Return { value: Box::new(Expression::Unit) }))
+        }
+    } else {
+        None
+    }
+}
+
+fn get_operator(token: &Token) -> Option<Operator> {
     match token {
-        Token::Plus => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::Plus,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::Minus => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::Minus,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::Asterisk => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::Multiply,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::Slash => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::Divide,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::Equal => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::Equal,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::NotEqual => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::NotEqual,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::LessThan => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::LessThan,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::GreaterThan => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::GreaterThan,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::LessThanEqual => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::LessThanEqual,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
-        Token::GreaterThanEqual => Some(Expression::BinaryOperator(BinaryOperator {
-            left: Box::new(expressions.pop().unwrap()),
-            operator: Operator::GreaterThanEqual,
-            right: Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap()),
-        })),
+        Token::Plus =>Some( Operator::Plus),
+        Token::Minus =>Some( Operator::Minus),
+        Token::Asterisk =>Some( Operator::Multiply),
+        Token::Slash =>Some( Operator::Divide),
+        Token::Equal =>Some( Operator::Equal),
+        Token::NotEqual =>Some( Operator::NotEqual),
+        Token::LessThan =>Some( Operator::LessThan),
+        Token::GreaterThan =>Some( Operator::GreaterThan),
+        Token::LessThanEqual =>Some( Operator::LessThanEqual),
+        Token::GreaterThanEqual =>Some( Operator::GreaterThanEqual),
         _ => None,
     }
+}
+
+fn parse_binary_operator(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>)  -> Option<Expression> {
+    let operator = get_operator(token);
+
+    operator.as_ref()?;
+
+    let left = expressions.pop().unwrap();
+    let right = Box::new(chain_pasers(&lexer.next().unwrap(), lexer, expressions).unwrap());
+
+    // if it's a let expression, add the binary operator to the let value:
+    if let Expression::Let(let_expression) = left {
+        let value = Expression::BinaryOperator(BinaryOperator {
+            left: let_expression.value,
+            operator: operator.unwrap(),
+            right,
+        });
+
+        return Some(Expression::Let(Let { name: let_expression.name, value: Box::new(value) }));
+    }   
+    
+    // if it's return expression, add the binary operator to the return value:
+    if let Expression::Return(return_expression) = left {
+        let value = Expression::BinaryOperator(BinaryOperator {
+            left: return_expression.value,
+            operator: operator.unwrap(),
+            right,
+        });
+
+        return Some(Expression::Return(Return { value: Box::new(value) }));
+    }
+
+    Some(Expression::BinaryOperator(BinaryOperator {
+        left: Box::new(left),
+        operator: operator.unwrap(),
+        right,
+    }))
 }
 
 fn parse_parens(token: &Token, lexer: &mut Lexer<Token>, expressions: &mut Vec<Expression>)  -> Option<Expression> {
